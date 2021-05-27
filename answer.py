@@ -10,7 +10,7 @@ import os
 #Create Flask App
 app = Flask(__name__)
 
-#Connecting to Database
+#Connecting to Database through sqllite
 conn = sqlite3.connect('database.db')
 c = conn.cursor()
 conn.execute('DROP TABLE IF EXISTS models')
