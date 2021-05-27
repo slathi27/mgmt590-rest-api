@@ -8,10 +8,8 @@ Created on Mon May 24 17:58:22 2021
 import os
 import time
 import sqlite3
-import torch
 from sqlite3 import Error
 from flask import Flask, jsonify, request
-import pandas as pd
 from transformers.pipelines import pipeline
 
 #establishing connection with the database
@@ -132,7 +130,7 @@ def methods_for_answers():
 
 
     elif  request.method =='GET':
-        conn = sqlite3.connect('test3.db')
+        conn = sqlite3.connect('database.db')
         c = conn.cursor()
 
         #Retrieving Model, Start, End
