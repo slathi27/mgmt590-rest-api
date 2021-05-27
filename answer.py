@@ -1,101 +1,105 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Mon May 24 17:58:22 2021
-
-@author: Saumya Lathi
-"""
-#Importing libraries
-import os
-import time
+#Importing Libraries
 import sqlite3
-from sqlite3 import Error
-from flask import Flask, jsonify, request
+import time
 from transformers.pipelines import pipeline
+from flask import Flask
+from flask import request
+from flask import jsonify
+import os
 
-#establishing connection with the database
+#Create Flask App
+app = Flask(__name__)
+
+#Connecting to Database
 conn = sqlite3.connect('database.db')
-#Creating tables
+c = conn.cursor()
 conn.execute('DROP TABLE IF EXISTS models')
-conn.execute('CREATE TABLE models (name TEXT, tokenizer TEXT, model TEXT)')
+#Creating Table models
+conn.execute("CREATE TABLE models(name TEXT, tokenizer TEXT, model TEXT)")
 
-cur = conn.cursor()
-#Introducing data in the table
-cur.execute("INSERT INTO models (name, tokenizer, model) VALUES (?, ?, ?)",
-            ("distilled-bert", "distilbert-base-uncased-distilled-squad", "distilbert-base-uncased-distilled-squad")
-            )
-cur.execute("INSERT INTO models (name, tokenizer, model) VALUES (?, ?, ?)",
-            ("deepset-roberta", "deepset/roberta-base-squad2", "deepset/roberta-base-squad2")
-            )
-
+#Inserting details of 2 models into the table
+c.execute("INSERT INTO models VALUES ('distilled-bert','distilbert-base-uncased-distilled-squad','distilbert-base-uncased-distilled-squad')")
+c.execute("INSERT INTO models VALUES ('deepset-roberta','deepset/roberta-base-squad2','deepset/roberta-base-squad2')")
 conn.commit()
 
-#Creating a fucntion for requests like Get, Post and Delete
-app = Flask(__name__)
-@app.route('/models', methods=['GET','POST','DELETE'])
-def mod():
-    conn  =  sqlite3.connect('database.db')
-    cursor  =  conn.cursor()
-#Get request output       
+#Create Table qa_log for storing Timestamp
+c.execute("CREATE TABLE IF NOT EXISTS qa_log(question TEXT, context TEXT, answer TEXT, model TEXT,timestamp REAL)")
+
+#-----------------------------------------Models ----------------------
+
+@app.route('/models', methods=['GET','PUT','DELETE'])
+def methods_for_models():
+    
     if  request.method =='GET':
-        cursor.execute('''SELECT * FROM models''')
+        conn  =  sqlite3.connect('database.db')
+        cursor  =  conn.cursor()
+        cursor.execute('''SELECT name,tokenizer,model  FROM models''')
         myresult = cursor.fetchall()
-        model=[]
+        li_model=[]
         for i in range(0,len(myresult)):
-            record = {"name": myresult[i][0] ,"tokenizer":myresult[i][1]  ,"model": myresult[i][2]}
-            model.append(record)
-        return jsonify(model)
-#Post request output    
-    elif request.method == 'POST':
-        conn = sqlite3.connect("database.db")
+            record = {"name": myresult[i][0] ,"tokenizer":myresult[i][1]  ,"model": myresult[i][2] }
+            li_model.append(record)
+        return jsonify(li_model)
+
+    elif request.method == 'PUT':
+        conn = sqlite3.connect('database.db')
         c = conn.cursor()
-
-        insert_put = request.json
-        name = insert_put['name']
-        tokenizer = insert_put['tokenizer']
-        model = insert_put['model']
-
-        c.execute("INSERT INTO models VALUES (?, ?, ?)", (name, tokenizer, model))
+        
+        #Getting details of the model to be inserted in the Table
+        data = request.json
+        name = data['name']
+        tokenizer = data['tokenizer']
+        model = data['model']
+        
+        #Inserting new row into the model
+        c.execute("INSERT INTO models (name, tokenizer, model) VALUES (?, ?, ?)", (name, tokenizer, model))
         conn.commit()
-        c.execute("SELECT * FROM models")
+        #Query to retrieve models from database
+        c.execute("SELECT name,tokenizer,model FROM models")
+        #Storing Results of the query in a list 
         myresult = c.fetchall()
-        model = []
+        li_model = []
+        #Storing the Result in JSON 
         for i in range(0,len(myresult)):
             record = {"name": myresult[i][0] ,"tokenizer":myresult[i][1]  ,"model": myresult[i][2]}
-            model.append(record)
-        return jsonify(model)
-#Delete request Output
+            li_model.append(record)
+        return jsonify(li_model)
+    
     elif request.method == 'DELETE':
         conn = sqlite3.connect("database.db")
         c = conn.cursor()
-        modelname = request.args.get('model')
+        #Getting details of the model to be deleted in the Table
+        modelname = request.args.get('model',None)
+        #Deleting row
         c.execute("DELETE FROM models WHERE name = ?", (modelname,))
         conn.commit()
-        c.execute("SELECT * FROM models")
+        #Query to retrieve models from database
+        c.execute("SELECT name,tokenizer,model FROM models")
         myresult = c.fetchall()
-        
-        model = []
+        #Storing the Result in JSON 
+        li_model = []
         for i in range(0,len(myresult)):
             record = {"name": myresult[i][0] ,"tokenizer":myresult[i][1]  ,"model": myresult[i][2]}
-            model.append(record)
-        return jsonify(model)    
+            li_model.append(record)
+        return jsonify(li_model)
 
-#Answers
+#-----------------------------------------Answers ----------------------
 
 @app.route("/answer", methods = ['GET','POST'])
 def methods_for_answers():
-   
+    
     if  request.method =='POST':
         model_name = request.args.get('model', None)
         data = request.json
-        #Default model
+        #Default model when no model is specified
         if not model_name:
-            model_name='deepset-roberta'    
+            model_name='distilled-bert'    
         conn = sqlite3.connect('database.db')
         c = conn.cursor()
-        #Query to retireve information
+        #Query to retireve information of that particular model
         c.execute("SELECT DISTINCT name,tokenizer,model FROM models WHERE name=?",(model_name,))
         myresult = c.fetchall()
-       
+        
         row= myresult[0]
         name = row[0]
         tokenizer = row[1]
@@ -125,14 +129,44 @@ def methods_for_answers():
         "model": model_name,
         "answer": answer,
         "question": data['question'],
-        "context": data['context']}  
+        "context": data['context']}   
         return jsonify(output)
 
 
     elif  request.method =='GET':
+        
         conn = sqlite3.connect('database.db')
         c = conn.cursor()
-
+       
+        name= request.args.get('model')
+        start= request.args.get('start')
+        end= request.args.get('end')
+        if name:
+            c.execute('SELECT * FROM qa_log WHERE model=? AND timestamp >=? AND timestamp <=?',(name,start,end))
+            model = c.fetchall()
+            output=[]
+            for row in model:
+              record = {"timestamp": row[4],
+                        "model":row[3],
+                        "answer": row[2],
+                        "question": row[0],
+                        "context": row[1]}
+              output.append(record)
+            return jsonify(output)
+        else:
+            c.execute('SELECT * FROM qa_log WHERE timestamp >=? AND timestamp <=?',(start,end))
+            model = c.fetchall()
+            output=[]
+            for row in model:
+              record = {"timestamp": row[4],
+                        "model":row[3],
+                        "answer": row[2],
+                        "question": row[0],
+                        "context": row[1]}
+              output.append(record)
+            return jsonify(output)
+       
+        
         #Retrieving Model, Start, End
         model_name = request.args.get('model', None)
         start = float(request.args.get('start', None))
@@ -172,11 +206,12 @@ def methods_for_answers():
         c.close()
         conn.close()
         return jsonify(li)
-       
+        
+
+        
+
 
 
 if __name__ == '__main__':
-   app.run( port ='8000', )    
-    
-app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080)), threaded=True)
-conn.close()
+   app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080)), threaded=True)
+
