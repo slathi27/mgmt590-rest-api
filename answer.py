@@ -5,56 +5,86 @@ import sqlite3
 from transformers.pipelines import pipeline
 from flask import Flask
 from flask import request, jsonify
+
+import os
 import psycopg2
 
-#create pem file
-file = open("/server-c.pem", "w")
-root_cert_variable=os.environ['PG_SSLROOTCERT']
-root_cert_variable=root_cert_variable.replace('@','=')
-file.write(root_cert_variable)
-file.close()
-
-file = open("/client-cert.pem", "w")
-cert_variable=os.environ['PG_SSLCERT']
-file.write(cert_variable)
-file.close()
-
-file = open("/client-key.pem", "w")
-client_key=os.environ['PG_SSLKEY']
-client_key=client_key.replace('@','=')
-file.write(client_key)
-file.close()
-os.chmod("/client-key.pem",0o600)
-os.chmod("/client-cert.pem",0o600)
-os.chmod("/server-c.pem",0o600)
 # Format DB connection information
-sslmode = "sslmode=verify-ca"
-sslrootcert = "sslrootcert=/server-c.pem"
-sslcert = "sslcert=/client-cert.pem"
-sslkey = "sslkey=/client-key.pem"
-hostaddr = "hostaddr={}".format(os.environ['PG_HOST'])
-user = "user=postgres"
-password = "password={}".format(os.environ['PG_PASSWORD'])
-dbname = "dbname=qa_model"
+# sslmode = "sslmode=verify-ca"
+# sslrootcert = "sslrootcert={}".format(os.environ.get('PG_SSLROOTCERT'))
+# sslcert = "sslcert={}".format(os.environ.get('PG_SSLCERT'))
+# sslkey = "sslkey={}".format(os.environ.get('PG_SSLKEY'))
+# hostaddr = "hostaddr={}".format(os.environ.get('PG_HOST'))
+# user = "user=postgres"
+# password = "password={}".format(os.environ.get('PG_PASSWORD'))
+# dbname = "dbname=psdpdb"
 
-
-# Construct database connect string
-db_connect_string = " ".join([
-    sslmode,
-    sslrootcert,
-    sslcert,
-    sslkey,
-    hostaddr,
-    user,
-    password,
-    dbname
-])
-
-# Connect to your postgres DB
-# con = psycopg2.connect(db_connect_string)
+# #create pem files
+# file = open("/server-c.pem", "w")
+# root_cert_variable=os.environ['PG_SSLROOTCERT']
+# root_cert_variable=root_cert_variable.replace('@','=')
+# file.write(root_cert_variable)
+# file.close()
+#
+# file = open("/client-cert.pem", "w")
+# cert_variable=os.environ['PG_SSLCERT']
+# cert_variable=cert_variable.replace('@','=')
+# file.write(cert_variable)
+# file.close()
+#
+# file = open("/client-key.pem", "w")
+# client_key=os.environ['PG_SSLKEY']
+# client_key=client_key.replace('@','=')
+# file.write(client_key)
+# file.close()
+#
+# os.chmod("/client-key.pem",0o600)
+# os.chmod("/client-cert.pem",0o600)
+# os.chmod("/server-c.pem",0o600)
+#
+# # Format DB connection information
+# sslmode = "sslmode=verify-ca"
+# sslrootcert = "sslrootcert=/server-c.pem"
+# sslcert = "sslcert=/client-cert.pem"
+# sslkey = "sslkey=/client-key.pem"
+# hostaddr = "hostaddr={}".format(os.environ['PG_HOST'])
+# user = "user=postgres"
+# password = "password={}".format(os.environ['PG_PASSWORD'])
+# dbname = "dbname=psdpdb"
+#
+# # sslmode = "sslmode=verify-ca"
+# # sslrootcert = "sslrootcert=server-ca.pem"
+# # sslcert = "sslcert=client-cert.pem"
+# # sslkey = "sslkey=client-key.pem"
+# # hostaddr = "hostaddr=35.188.117.213"
+# # user = "user=postgres"
+# # password = "password=psdp1234"
+# # dbname = "dbname=psdpdb"
+#
+#
+# # Construct database connect string
+# db_connect_string = " ".join([
+#     sslmode,
+#     sslrootcert,
+#     sslcert,
+#     sslkey,
+#     hostaddr,
+#     user,
+#     password,
+#     dbname
+# ])
+#
+# # Connect to your postgres DB
+# conn = psycopg2.connect(db_connect_string)
 
 # Open a cursor to perform database operations
 # cur = conn.cursor()
+
+# # Execute a query
+# cur.execute("""CREATE TABLE IF NOT EXISTS answers
+#         (question text, context text, model text, answer text, timestamp int)""")
+
+
 # --------------#
 #  VARIABLES   #
 # --------------#
@@ -63,22 +93,108 @@ db_connect_string = " ".join([
 # app = Flask(__name__)
 
 # Create a variable that will hold our models in memory
-models = {}
+
 
 # The database file
-db = 'answers.db'
-
-
-def test():
-    print("test")
-
+# db = 'answers.db'
 
 # --------------#
 #    ROUTES    #
 # --------------#
 
+# Define a handler for the / path, which
+# returns a message and allows Cloud Run to
+# health check the API.
 def create_app():
+    # Create my flask app
     app = Flask(__name__)
+
+    # create pem files
+    file = open("/server-c.pem", "w")
+    root_cert_variable = os.environ['PG_SSLROOTCERT']
+    root_cert_variable = root_cert_variable.replace('@', '=')
+    file.write(root_cert_variable)
+    file.close()
+
+    file = open("/client-cert.pem", "w")
+    cert_variable = os.environ['PG_SSLCERT']
+    cert_variable = cert_variable.replace('@', '=')
+    file.write(cert_variable)
+    file.close()
+
+    file = open("/client-key.pem", "w")
+    client_key = os.environ['PG_SSLKEY']
+    client_key = client_key.replace('@', '=')
+    file.write(client_key)
+    file.close()
+
+    os.chmod("/client-key.pem", 0o600)
+    os.chmod("/client-cert.pem", 0o600)
+    os.chmod("/server-c.pem", 0o600)
+
+    # Format DB connection information
+    sslmode = "sslmode=verify-ca"
+    sslrootcert = "sslrootcert=/server-c.pem"
+    sslcert = "sslcert=/client-cert.pem"
+    sslkey = "sslkey=/client-key.pem"
+    hostaddr = "hostaddr={}".format(os.environ['PG_HOST'])
+    user = "user=postgres"
+    password = "password={}".format(os.environ['PG_PASSWORD'])
+    dbname = "dbname=saumya_db"
+
+    # sslmode = "sslmode=verify-ca"
+    # sslrootcert = "sslrootcert=server-ca.pem"
+    # sslcert = "sslcert=client-cert.pem"
+    # sslkey = "sslkey=client-key.pem"
+    # hostaddr = "hostaddr=35.188.117.213"
+    # user = "user=postgres"
+    # password = "password=psdp1234"
+    # dbname = "dbname=psdpdb"
+
+    # Construct database connect string
+    db_connect_string = " ".join([
+        sslmode,
+        sslrootcert,
+        sslcert,
+        sslkey,
+        hostaddr,
+        user,
+        password,
+        dbname
+    ])
+
+    # Connect to your postgres DB
+    conn = psycopg2.connect(db_connect_string)
+
+    # Initialize our default model.
+    models = {
+        "default": "distilled-bert",
+        "models": [
+            {
+                "name": "distilled-bert",
+                "tokenizer": "distilbert-base-uncased-distilled-squad",
+                "model": "distilbert-base-uncased-distilled-squad",
+                "pipeline": pipeline('question-answering',
+                                     model="distilbert-base-uncased-distilled-squad",
+                                     tokenizer="distilbert-base-uncased-distilled-squad")
+            }
+        ]
+    }
+
+    # Database setup
+    con = psycopg2.connect(db_connect_string)
+    cur = con.cursor()
+    cur.execute('''CREATE TABLE IF NOT EXISTS answers
+               (question text, context text, model text, answer text, timestamp int)''')
+    con.commit()
+    con.close()
+
+    # The database file
+    # db = 'answers.db'
+
+    # --------------#
+    #    ROUTES    #
+    # --------------#
 
     # Define a handler for the / path, which
     # returns a message and allows Cloud Run to
@@ -93,14 +209,21 @@ def create_app():
     # Face model.
     @app.route("/answer", methods=['POST'])
     def answer():
+
         # Get the request body data
         data = request.json
 
         # Validate model name if given
+        # if request.args.get('model') != None:
+        #     if not validate_model(request.args.get('model')):
+        #         return "Model not found", 400
         if request.args.get('model') != None:
             if not validate_model(request.args.get('model')):
-                return "Model not found", 400
-
+                out = {"question": None,
+                       "answer": "invalid model.",
+                       "context": None,
+                       "model": None}
+                return jsonify(out)
         # Answer the question
         answer, model_name = answer_question(request.args.get('model'),
                                              data['question'], data['context'])
@@ -133,13 +256,14 @@ def create_app():
     # List historical answers from the database.
     @app.route("/answer", methods=['GET'])
     def list_answer():
+
         # Validate timestamps
         if request.args.get('start') == None or request.args.get('end') == None:
             return "Query timestamps not provided", 400
 
         # Prep SQL query
         if request.args.get('model') != None:
-            sql = "SELECT * FROM answers WHERE timestamp >= {start} AND timestamp <= {end} AND model == '{model}'"
+            sql = "SELECT * FROM answers WHERE timestamp >= {start} AND timestamp <= {end} AND model = '{model}'"
             sql_rev = sql.format(start=request.args.get('start'),
                                  end=request.args.get('end'), model=request.args.get('model'))
         else:
@@ -150,16 +274,17 @@ def create_app():
         con = psycopg2.connect(db_connect_string)
         cur = con.cursor()
         cur.execute(sql_rev)
-        result = cur.fetchall()
+        model = cur.fetchall()
         out = []
-        for row in result:
-            out.append({
+        for row in model:
+            output = {
                 "question": row[0],
                 "context": row[1],
                 "answer": row[2],
                 "model": row[3],
                 "timestamp": row[4]
-            })
+            }
+            out.append(output)
         con.close()
 
         return jsonify(out)
@@ -167,6 +292,7 @@ def create_app():
     # List models currently available for inference
     @app.route("/models", methods=['GET'])
     def list_model():
+
         # Get the loaded models
         models_loaded = []
         for m in models['models']:
@@ -181,6 +307,7 @@ def create_app():
     # Add a model to the models available for inference
     @app.route("/models", methods=['PUT'])
     def add_model():
+
         # Get the request body data
         data = request.json
 
@@ -213,6 +340,7 @@ def create_app():
     # Delete a model from the models available for inference
     @app.route("/models", methods=['DELETE'])
     def delete_model():
+
         # Validate model name if given
         if request.args.get('model') == None:
             return "Model name not provided in query string", 400
@@ -239,6 +367,7 @@ def create_app():
 
         return jsonify(models_loaded)
 
+
     # --------------#
     #  FUNCTIONS   #
     # --------------#
@@ -251,6 +380,7 @@ def create_app():
             model_names.append(m['name'])
 
         return model_name in model_names
+
 
     # Answer a question with a given model name
     def answer_question(model_name, question, context):
@@ -270,39 +400,12 @@ def create_app():
 
         return answer, model_name
 
-    # Database setup
-    con = psycopg2.connect(db_connect_string)
-    cur = con.cursor()
-    #cur.execute("DROP table answers")
-    cur.execute('''CREATE TABLE if not exists answers
-               (question text, context text, model text, answer text, timestamp int)''')
-    con.commit()
-    con.close()
-    models = {
-        "default": "distilled-bert",
-        "models": [
-            {
-                "name": "distilled-bert",
-                "tokenizer": "distilbert-base-uncased-distilled-squad",
-                "model": "distilbert-base-uncased-distilled-squad",
-                "pipeline": pipeline('question-answering',
-                                     model="distilbert-base-uncased-distilled-squad",
-                                     tokenizer="distilbert-base-uncased-distilled-squad")
-            }
-        ]
-    }
     return app
-    # Run main by default if running "python answer.py"
 
-
+# Run main by default if running "python answer.py"
 if __name__ == '__main__':
-    # create app
+    # Create our Flask App
     app = create_app()
-    con = psycopg2.connect(db_connect_string)
-    cur = con.cursor()
-    cur.execute('''CREATE TABLE if not exists answers
-                   (question text, context text, model text, answer text, timestamp int)''')
-    con.commit()
-    # Initialize our default model.
+
     # Run our Flask app and start listening for requests!
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080)), threaded=True)
