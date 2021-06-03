@@ -1,217 +1,314 @@
-#Importing Libraries
-import sqlite3
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Jun  3 11:28:10 2021
+
+@author: Saumya Lathi
+"""
+import os
 import time
+import sqlite3
+
 from transformers.pipelines import pipeline
 from flask import Flask
-from flask import request
-from flask import jsonify
-import os
+from flask import request, jsonify
+import psycopg2
 
-#Create Flask App
-app = Flask(__name__)
+#create pem files
+file = open("/server-c.pem", "w")
+root_cert_variable=os.environ['PG_SSLROOTCERT']
+root_cert_variable=root_cert_variable.replace('@','=')
+file.write(root_cert_variable)
+file.close()
 
-#Connecting to Database through sqllite
-conn = sqlite3.connect('database.db')
-c = conn.cursor()
-conn.execute('DROP TABLE IF EXISTS models')
-#Creating Table models
-conn.execute("CREATE TABLE models(name TEXT, tokenizer TEXT, model TEXT)")
+file = open("/client-cert.pem", "w")
+cert_variable=os.environ['PG_SSLCERT']
+file.write(cert_variable)
+file.close()
 
-#Inserting details of 2 models into the table
-c.execute("INSERT INTO models VALUES ('distilled-bert','distilbert-base-uncased-distilled-squad','distilbert-base-uncased-distilled-squad')")
-c.execute("INSERT INTO models VALUES ('deepset-roberta','deepset/roberta-base-squad2','deepset/roberta-base-squad2')")
-conn.commit()
+file = open("/client-key.pem", "w")
+client_key=os.environ['PG_SSLKEY']
+client_key=client_key.replace('@','=')
+file.write(client_key)
+file.close()
+os.chmod("/client-key.pem",0o600)
+os.chmod("/client-cert.pem",0o600)
+os.chmod("/server-c.pem",0o600)
+# Format DB connection information
+sslmode = "sslmode=verify-ca"
+sslrootcert = "sslrootcert=/server-c.pem"
+sslcert = "sslcert=/client-cert.pem"
+sslkey = "sslkey=/client-key.pem"
+hostaddr = "hostaddr={}".format(os.environ['PG_HOST'])
+user = "user=postgres"
+password = "password={}".format(os.environ['PG_PASSWORD'])
+dbname = "dbname=saumya_db"
 
-#Create Table qa_log for storing Timestamp
-c.execute("CREATE TABLE IF NOT EXISTS qa_log(question TEXT, context TEXT, answer TEXT, model TEXT,timestamp REAL)")
 
-#-----------------------------------------Models ----------------------
+# Construct database connect string
+db_connect_string = " ".join([
+    sslmode,
+    sslrootcert,
+    sslcert,
+    sslkey,
+    hostaddr,
+    user,
+    password,
+    dbname
+])
 
-@app.route('/models', methods=['GET','PUT','DELETE'])
-def methods_for_models():
-    
-    if  request.method =='GET':
-        conn  =  sqlite3.connect('database.db')
-        cursor  =  conn.cursor()
-        cursor.execute('''SELECT name,tokenizer,model  FROM models''')
-        myresult = cursor.fetchall()
-        li_model=[]
-        for i in range(0,len(myresult)):
-            record = {"name": myresult[i][0] ,"tokenizer":myresult[i][1]  ,"model": myresult[i][2] }
-            li_model.append(record)
-        return jsonify(li_model)
+# Connect to your postgres DB
+# con = psycopg2.connect(db_connect_string)
 
-    elif request.method == 'PUT':
-        conn = sqlite3.connect('database.db')
-        c = conn.cursor()
-        
-        #Getting details of the model to be inserted in the Table
+# Open a cursor to perform database operations
+# cur = conn.cursor()
+# --------------#
+#  VARIABLES   #
+# --------------#
+
+# Create my flask app
+# app = Flask(__name__)
+
+# Create a variable that will hold our models in memory
+models = {}
+
+# The database file
+db = 'answers.db'
+
+
+def test():
+    print("test")
+
+
+# --------------#
+#    ROUTES    #
+# --------------#
+
+def create_app():
+    app = Flask(__name__)
+
+    # Define a handler for the / path, which
+    # returns a message and allows Cloud Run to
+    # health check the API.
+    @app.route("/")
+    def hello_world():
+        return "<p>The question answering API is healthy!</p>"
+
+    # Define a handler for the /answer path, which
+    # processes a JSON payload with a question and
+    # context and returns an answer using a Hugging
+    # Face model.
+    @app.route("/answer", methods=['POST'])
+    def answer():
+        # Get the request body data
         data = request.json
-        name = data['name']
-        tokenizer = data['tokenizer']
-        model = data['model']
-        
-        #Inserting new row into the model
-        c.execute("INSERT INTO models (name, tokenizer, model) VALUES (?, ?, ?)", (name, tokenizer, model))
-        conn.commit()
-        #Query to retrieve models from database
-        c.execute("SELECT name,tokenizer,model FROM models")
-        #Storing Results of the query in a list 
-        myresult = c.fetchall()
-        li_model = []
-        #Storing the Result in JSON 
-        for i in range(0,len(myresult)):
-            record = {"name": myresult[i][0] ,"tokenizer":myresult[i][1]  ,"model": myresult[i][2]}
-            li_model.append(record)
-        return jsonify(li_model)
-    
-    elif request.method == 'DELETE':
-        conn = sqlite3.connect("database.db")
-        c = conn.cursor()
-        #Getting details of the model to be deleted in the Table
-        modelname = request.args.get('model',None)
-        #Deleting row
-        c.execute("DELETE FROM models WHERE name = ?", (modelname,))
-        conn.commit()
-        #Query to retrieve models from database
-        c.execute("SELECT name,tokenizer,model FROM models")
-        myresult = c.fetchall()
-        #Storing the Result in JSON 
-        li_model = []
-        for i in range(0,len(myresult)):
-            record = {"name": myresult[i][0] ,"tokenizer":myresult[i][1]  ,"model": myresult[i][2]}
-            li_model.append(record)
-        return jsonify(li_model)
 
-#-----------------------------------------Answers ----------------------
+        # Validate model name if given
+        if request.args.get('model') != None:
+            if not validate_model(request.args.get('model')):
+                return "Model not found", 400
 
-@app.route("/answer", methods = ['GET','POST'])
-def methods_for_answers():
-    
-    if  request.method =='POST':
-        model_name = request.args.get('model', None)
-        data = request.json
-        #Default model when no model is specified
-        if not model_name:
-            model_name='distilled-bert'    
-        conn = sqlite3.connect('database.db')
-        c = conn.cursor()
-        #Query to retireve information of that particular model
-        c.execute("SELECT DISTINCT name,tokenizer,model FROM models WHERE name=?",(model_name,))
-        myresult = c.fetchall()
-        
-        row= myresult[0]
-        name = row[0]
-        tokenizer = row[1]
-        model = row[2]
-   
-        #Implementing Model
-        hg_comp = pipeline('question-answering', model=model, tokenizer=tokenizer)
+        # Answer the question
+        answer, model_name = answer_question(request.args.get('model'),
+                                             data['question'], data['context'])
+        timestamp = int(time.time())
 
-        # Answering the Question
-        answer = hg_comp({'question': data['question'], 'context': data['context']})['answer']
+        # Insert our answer in the database
+        con = psycopg2.connect(db_connect_string)
+        cur = con.cursor()
+        sql = "INSERT INTO answers VALUES ('{question}','{context}','{model}','{answer}',{timestamp})"
+        cur.execute(sql.format(
+            question=data['question'].replace("'", "''"),
+            context=data['context'].replace("'", "''"),
+            model=model_name,
+            answer=answer,
+            timestamp=str(timestamp)))
+        con.commit()
+        con.close()
 
-        #Generating Timestamp
-        ts = time.time()
+        # Create the response body.
+        out = {
+            "question": data['question'],
+            "context": data['context'],
+            "answer": answer,
+            "model": model_name,
+            "timestamp": timestamp
+        }
 
-        #Inserting entry into qa_log table
-        c.execute("CREATE TABLE IF NOT EXISTS qa_log(question TEXT, context TEXT, answer TEXT, model TEXT,timestamp REAL)")
-        c.execute("INSERT INTO qa_log VALUES(?,?,?,?,?)", (data['question'], data['context'],answer, model_name,ts))
-        conn.commit()
+        return jsonify(out)
 
+    # List historical answers from the database.
+    @app.route("/answer", methods=['GET'])
+    def list_answer():
+        # Validate timestamps
+        if request.args.get('start') == None or request.args.get('end') == None:
+            return "Query timestamps not provided", 400
 
-        c.close()
-        conn.close()
-
-        #JSON to return Output
-        output = {
-        "timestamp": ts,
-        "model": model_name,
-        "answer": answer,
-        "question": data['question'],
-        "context": data['context']}   
-        return jsonify(output)
-
-
-    elif  request.method =='GET':
-        
-        conn = sqlite3.connect('database.db')
-        c = conn.cursor()
-       
-        name= request.args.get('model')
-        start= request.args.get('start')
-        end= request.args.get('end')
-        if name:
-            c.execute('SELECT * FROM qa_log WHERE model=? AND timestamp >=? AND timestamp <=?',(name,start,end))
-            model = c.fetchall()
-            output=[]
-            for row in model:
-              record = {"timestamp": row[4],
-                        "model":row[3],
-                        "answer": row[2],
-                        "question": row[0],
-                        "context": row[1]}
-              output.append(record)
-            return jsonify(output)
+        # Prep SQL query
+        if request.args.get('model') != None:
+            sql = "SELECT * FROM answers WHERE timestamp >= {start} AND timestamp <= {end} AND model == '{model}'"
+            sql_rev = sql.format(start=request.args.get('start'),
+                                 end=request.args.get('end'), model=request.args.get('model'))
         else:
-            c.execute('SELECT * FROM qa_log WHERE timestamp >=? AND timestamp <=?',(start,end))
-            model = c.fetchall()
-            output=[]
-            for row in model:
-              record = {"timestamp": row[4],
-                        "model":row[3],
-                        "answer": row[2],
-                        "question": row[0],
-                        "context": row[1]}
-              output.append(record)
-            return jsonify(output)
-       
-        
-        #Retrieving Model, Start, End
-        model_name = request.args.get('model', None)
-        start = float(request.args.get('start', None))
-        end = float(request.args.get('end',None))
+            sql = 'SELECT * FROM answers WHERE timestamp >= {start} AND timestamp <= {end}'
+            sql_rev = sql.format(start=request.args.get('start'), end=request.args.get('end'))
 
-        c.execute('SELECT * FROM qa_log WHERE model=?',(model_name,))
-        logdata = c.fetchall()
+        # Query the database
+        con = psycopg2.connect(db_connect_string)
+        cur = con.cursor()
+        cur.execute(sql_rev)
+        result = cur.fetchall()
+        out = []
+        for row in result:
+            out.append({
+                "question": row[0],
+                "context": row[1],
+                "answer": row[2],
+                "model": row[3],
+                "timestamp": row[4]
+            })
+        con.close()
 
-        li = []
-        for row in logdata:
+        return jsonify(out)
 
-            if row[4] >= start:
+    # List models currently available for inference
+    @app.route("/models", methods=['GET'])
+    def list_model():
+        # Get the loaded models
+        models_loaded = []
+        for m in models['models']:
+            models_loaded.append({
+                'name': m['name'],
+                'tokenizer': m['tokenizer'],
+                'model': m['model']
+            })
 
-                if row[4] <= end:
+        return jsonify(models_loaded)
 
-                    log_q = row[0]
-                    log_ct = row[1]
-                    log_ans = row[2]
-                    log_mod = row[3]
-                    log_ts = row[4]
+    # Add a model to the models available for inference
+    @app.route("/models", methods=['PUT'])
+    def add_model():
+        # Get the request body data
+        data = request.json
 
-                    row_model = {
-                        "question": log_q,
+        # Load the provided model
+        if not validate_model(data['name']):
+            models_rev = []
+            for m in models['models']:
+                models_rev.append(m)
+            models_rev.append({
+                'name': data['name'],
+                'tokenizer': data['tokenizer'],
+                'model': data['model'],
+                'pipeline': pipeline('question-answering',
+                                     model=data['model'],
+                                     tokenizer=data['tokenizer'])
+            })
+            models['models'] = models_rev
 
-                        "context": log_ct,
+        # Get the loaded models
+        models_loaded = []
+        for m in models['models']:
+            models_loaded.append({
+                'name': m['name'],
+                'tokenizer': m['tokenizer'],
+                'model': m['model']
+            })
 
-                        "ans": log_ans,
+        return jsonify(models_loaded)
 
-                        "model": log_mod,
+    # Delete a model from the models available for inference
+    @app.route("/models", methods=['DELETE'])
+    def delete_model():
+        # Validate model name if given
+        if request.args.get('model') == None:
+            return "Model name not provided in query string", 400
 
-                        "timestamp": log_ts
+        # Error if trying to delete default model
+        if request.args.get('model') == models['default']:
+            return "Can't delete default model", 400
 
-                    }
+        # Load the provided model
+        models_rev = []
+        for m in models['models']:
+            if m['name'] != request.args.get('model'):
+                models_rev.append(m)
+        models['models'] = models_rev
 
-                li.append(row_model)
+        # Get the loaded models
+        models_loaded = []
+        for m in models['models']:
+            models_loaded.append({
+                'name': m['name'],
+                'tokenizer': m['tokenizer'],
+                'model': m['model']
+            })
 
-        c.close()
-        conn.close()
-        return jsonify(li)
-        
+        return jsonify(models_loaded)
 
-        
+    # --------------#
+    #  FUNCTIONS   #
+    # --------------#
 
+    # Validate that a model is available
+    def validate_model(model_name):
+        # Get the loaded models
+        model_names = []
+        for m in models['models']:
+            model_names.append(m['name'])
+
+        return model_name in model_names
+
+    # Answer a question with a given model name
+    def answer_question(model_name, question, context):
+        # Get the right model pipeline
+        if model_name == None:
+            for m in models['models']:
+                if m['name'] == models['default']:
+                    model_name = m['name']
+                    hg_comp = m['pipeline']
+        else:
+            for m in models['models']:
+                if m['name'] == model_name:
+                    hg_comp = m['pipeline']
+
+        # Answer the answer
+        answer = hg_comp({'question': question, 'context': context})['answer']
+
+        return answer, model_name
+
+    # Database setup
+    con = psycopg2.connect(db_connect_string)
+    cur = con.cursor()
+    #cur.execute("DROP table answers")
+    cur.execute('''CREATE TABLE if not exists answers
+               (question text, context text, model text, answer text, timestamp int)''')
+    con.commit()
+    con.close()
+    models = {
+        "default": "distilled-bert",
+        "models": [
+            {
+                "name": "distilled-bert",
+                "tokenizer": "distilbert-base-uncased-distilled-squad",
+                "model": "distilbert-base-uncased-distilled-squad",
+                "pipeline": pipeline('question-answering',
+                                     model="distilbert-base-uncased-distilled-squad",
+                                     tokenizer="distilbert-base-uncased-distilled-squad")
+            }
+        ]
+    }
+    return app
+    # Run main by default if running "python answer.py"
 
 
 if __name__ == '__main__':
-   app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080)), threaded=True)
-
+    # create app
+    app = create_app()
+    con = psycopg2.connect(db_connect_string)
+    cur = con.cursor()
+    cur.execute('''CREATE TABLE if not exists answers
+                   (question text, context text, model text, answer text, timestamp int)''')
+    con.commit()
+    # Initialize our default model.
+    # Run our Flask app and start listening for requests!
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080)), threaded=True)
