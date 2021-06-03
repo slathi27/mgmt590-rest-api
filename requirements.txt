@@ -1,3 +1,4 @@
 transformers==4.6.1
 flask==1.1.2
 psycopg2-binary
+pytest==6.2.4
