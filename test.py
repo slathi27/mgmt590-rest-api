@@ -1,15 +1,8 @@
 #Importing Libraries
 import pytest
 import json
-import os
-import sqlite3
-import time
-from transformers.pipelines import pipeline
-from flask import Flask
-from flask import request
-from flask import jsonify
-from answer2 import unittest
 from answer import create_app
+import os
 
 @pytest.fixture
 # Function To test on answer.py function - create_app
