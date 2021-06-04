@@ -3,10 +3,11 @@ import pytest
 import json
 from answer import create_app
 import os
+import psycopg2
 
 @pytest.fixture
 # Function To test on answer.py function - create_app
-def client():
+def test_client():
     app = create_app()
     app.config["TESTING"] = True
     with app.test_client() as client:
