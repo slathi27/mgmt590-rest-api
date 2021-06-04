@@ -9,11 +9,12 @@ from flask import Flask
 from flask import request
 from flask import jsonify
 from answer2 import unittest
+from answer import create_app
 
 @pytest.fixture
 # Function To test on answer.py function - create_app
 def client():
-    app = unittest()
+    app = create_app()
     app.config["TESTING"] = True
     with app.test_client() as client:
         yield client
