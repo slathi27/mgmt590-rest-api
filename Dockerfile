@@ -6,9 +6,7 @@ ADD requirements.txt .
 
 RUN pip install -r requirements.txt
 
-COPY answer.py answer.py
-
-COPY answer2.py answer2.py
+COPY answer.py .
 
 COPY test.py .
 
