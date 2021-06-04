@@ -41,7 +41,7 @@ sslkey = "sslkey=/client-key.pem"
 hostaddr = "hostaddr={}".format(os.environ['PG_HOST'])
 user = "user=postgres"
 password = "password={}".format(os.environ['PG_PASSWORD'])
-dbname = "dbname=psdpdb"
+dbname = "dbname=saumya_db"
 
 # sslmode = "sslmode=verify-ca"
 # sslrootcert = "sslrootcert=server-ca.pem"
