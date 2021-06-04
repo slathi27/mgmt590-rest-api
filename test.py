@@ -8,11 +8,11 @@ from flask import Flask
 from flask import request, jsonify
 import os
 import psycopg2
-from app import create_app
+from answer import create_app
 
 # create pem files
 file = open("/server-c.pem", "w")
-root_cert_variable = os.getenv['PG_SSLROOTCERT']
+root_cert_variable = os.environ['PG_SSLROOTCERT']
 root_cert_variable = root_cert_variable.replace('@', '=')
 file.write(root_cert_variable)
 file.close()
