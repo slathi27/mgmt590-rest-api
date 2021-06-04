@@ -46,7 +46,7 @@ def create_app():
     hostaddr = "hostaddr={}".format(os.environ['PG_HOST'])
     user = "user=postgres"
     password = "password={}".format(os.environ['PG_PASSWORD'])
-    dbname = "dbname=mgmt-qa-model"
+    dbname = "dbname=saumya_db"
 
     # Construct database connect string
     db_connect_string = " ".join([
