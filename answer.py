@@ -5,102 +5,8 @@ import sqlite3
 from transformers.pipelines import pipeline
 from flask import Flask
 from flask import request, jsonify
-
 import os
 import psycopg2
-
-# Format DB connection information
-# sslmode = "sslmode=verify-ca"
-# sslrootcert = "sslrootcert={}".format(os.environ.get('PG_SSLROOTCERT'))
-# sslcert = "sslcert={}".format(os.environ.get('PG_SSLCERT'))
-# sslkey = "sslkey={}".format(os.environ.get('PG_SSLKEY'))
-# hostaddr = "hostaddr={}".format(os.environ.get('PG_HOST'))
-# user = "user=postgres"
-# password = "password={}".format(os.environ.get('PG_PASSWORD'))
-# dbname = "dbname=psdpdb"
-
-# #create pem files
-# file = open("/server-c.pem", "w")
-# root_cert_variable=os.environ['PG_SSLROOTCERT']
-# root_cert_variable=root_cert_variable.replace('@','=')
-# file.write(root_cert_variable)
-# file.close()
-#
-# file = open("/client-cert.pem", "w")
-# cert_variable=os.environ['PG_SSLCERT']
-# cert_variable=cert_variable.replace('@','=')
-# file.write(cert_variable)
-# file.close()
-#
-# file = open("/client-key.pem", "w")
-# client_key=os.environ['PG_SSLKEY']
-# client_key=client_key.replace('@','=')
-# file.write(client_key)
-# file.close()
-#
-# os.chmod("/client-key.pem",0o600)
-# os.chmod("/client-cert.pem",0o600)
-# os.chmod("/server-c.pem",0o600)
-#
-# # Format DB connection information
-# sslmode = "sslmode=verify-ca"
-# sslrootcert = "sslrootcert=/server-c.pem"
-# sslcert = "sslcert=/client-cert.pem"
-# sslkey = "sslkey=/client-key.pem"
-# hostaddr = "hostaddr={}".format(os.environ['PG_HOST'])
-# user = "user=postgres"
-# password = "password={}".format(os.environ['PG_PASSWORD'])
-# dbname = "dbname=psdpdb"
-#
-# # sslmode = "sslmode=verify-ca"
-# # sslrootcert = "sslrootcert=server-ca.pem"
-# # sslcert = "sslcert=client-cert.pem"
-# # sslkey = "sslkey=client-key.pem"
-# # hostaddr = "hostaddr=35.188.117.213"
-# # user = "user=postgres"
-# # password = "password=psdp1234"
-# # dbname = "dbname=psdpdb"
-#
-#
-# # Construct database connect string
-# db_connect_string = " ".join([
-#     sslmode,
-#     sslrootcert,
-#     sslcert,
-#     sslkey,
-#     hostaddr,
-#     user,
-#     password,
-#     dbname
-# ])
-#
-# # Connect to your postgres DB
-# conn = psycopg2.connect(db_connect_string)
-
-# Open a cursor to perform database operations
-# cur = conn.cursor()
-
-# # Execute a query
-# cur.execute("""CREATE TABLE IF NOT EXISTS answers
-#         (question text, context text, model text, answer text, timestamp int)""")
-
-
-# --------------#
-#  VARIABLES   #
-# --------------#
-
-# Create my flask app
-# app = Flask(__name__)
-
-# Create a variable that will hold our models in memory
-
-
-# The database file
-# db = 'answers.db'
-
-# --------------#
-#    ROUTES    #
-# --------------#
 
 # Define a handler for the / path, which
 # returns a message and allows Cloud Run to
@@ -140,16 +46,7 @@ def create_app():
     hostaddr = "hostaddr={}".format(os.environ['PG_HOST'])
     user = "user=postgres"
     password = "password={}".format(os.environ['PG_PASSWORD'])
-    dbname = "dbname=saumya_db"
-
-    # sslmode = "sslmode=verify-ca"
-    # sslrootcert = "sslrootcert=server-ca.pem"
-    # sslcert = "sslcert=client-cert.pem"
-    # sslkey = "sslkey=client-key.pem"
-    # hostaddr = "hostaddr=35.188.117.213"
-    # user = "user=postgres"
-    # password = "password=psdp1234"
-    # dbname = "dbname=psdpdb"
+    dbname = "dbname=mgmt-qa-model"
 
     # Construct database connect string
     db_connect_string = " ".join([
