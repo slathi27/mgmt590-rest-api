@@ -10,7 +10,7 @@ COPY answer.py answer.py
 
 COPY answer2.py answer2.py
 
-COPY test.py test.py
+COPY test.py .
 
 CMD ["python", "answer.py"]
 
