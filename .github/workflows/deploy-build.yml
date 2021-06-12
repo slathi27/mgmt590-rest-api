@@ -31,9 +31,9 @@ jobs:
         docker build -t gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE }}:${{  github.sha }} .
         docker push gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE }}:${{  github.sha }}
     
-    - name: Test Container
-      run: |-
-        docker run -e PG_HOST='${{ secrets.PG_HOST }}' -e PG_SSLROOTCERT='${{ secrets.PG_SSLROOTCERT }}' -e PG_SSLCERT='${{ secrets.PG_SSLCERT }}' -e PG_SSLKEY='${{ secrets.PG_SSLKEY }}' -e PG_PASSWORD='${{ secrets.PG_PASSWORD }}' gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE }}:${{  github.sha }} pytest test.py -v
+    #- name: Test Container
+     # run: |-
+      #  docker run -e PG_HOST='${{ secrets.PG_HOST }}' -e PG_SSLROOTCERT='${{ secrets.PG_SSLROOTCERT }}' -e PG_SSLCERT='${{ secrets.PG_SSLCERT }}' -e PG_SSLKEY='${{ secrets.PG_SSLKEY }}' -e PG_PASSWORD='${{ secrets.PG_PASSWORD }}' gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE }}:${{  github.sha }} pytest test.py -v
     
     - name: Deploy to Cloud Run
       id: deploy
