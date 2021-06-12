@@ -10,5 +10,7 @@ COPY answer.py .
 
 COPY test.py .
 
+RUN pip install google-cloud-storage
+
 CMD ["python", "answer.py"]
 
