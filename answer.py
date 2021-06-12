@@ -292,7 +292,7 @@ def create_app():
 
                     f.save(os.path.join(app.config['upload_files'], f.filename))
                     client = storage.Client()
-                    bucket = client.get_bucket('last-assignment')
+                    bucket = client.get_bucket('psdp-assignment-mgmt-saumya')
                     blob = bucket.blob(f.filename)
                     blob.upload_from_filename(f.filename)
                     x.append('File uploaded')
